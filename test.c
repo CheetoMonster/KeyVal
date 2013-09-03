@@ -6,33 +6,7 @@
 
 /* TODO
 
-0. every function that returns a list needs to copy the memory, so that
-consumers can walk over a list and add/remove things without fear of
-trampling iterators :/
-X getKeys
-X getAllKeys
-X getValue
-
-X implement/test 'getAllKeys'
-
-X implement/test hasValue/hasKeys/exists
-
-X not all public functions are commented.  Or rather, maybe they are, but
-  half the comments are in the .c instead of the .h.
-
-X low-level errors (e.g. resize) are not rippled up the call stack.
-
-X check that all the memmove sizes are right.
-
-X check strdup out of memory
-
-5. perl/python/tcl frontends
-
-6. autoconf?
-
-7. document (format?)
-
-8. upload to github.
+- perl/python/tcl frontends
 
 */
 
@@ -714,8 +688,8 @@ int main(int argc, char **argv) {
   printf("  %d failed\n", test_fails);
 
   // cleanup:
-  //remove(IN);
-  //remove(OUT);
+  remove(IN);
+  remove(OUT);
 
   return test_fails > 0;
 }
