@@ -6,23 +6,6 @@
 
 /* TODO
 
-X change all function signatures so that the return value is the error
-  code (0=success, nonzero=fail), and the result is stored as the
-  initial pointer parameters.
-  QA:
-  X am I compiling with warnings??
-  X all 'return's are either 0 or 1, and report correct status
-  X no functions that have return values are ignored
-  X every path through actually assigns *res..
-
-X make all array indexes 'unsigned long' instead of 'int'
-
-X make all booleans 'unsigned char' instead of 'int'
-
-X fix test.c to work with new API.
-
-- fix test failures.  :/
-
 - run this through valgrind!
 
 - perl/python/tcl frontends
