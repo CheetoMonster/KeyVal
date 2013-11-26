@@ -1,6 +1,6 @@
 
 # define package name and version:
-AC_INIT([KeyVal], [0.1.0], [cheetomonster@gmail.com])
+AC_INIT([KeyVal], [0.2.0], [cheetomonster@gmail.com])
 
 # make sure there's an 'ar' somewhere:
 AM_PROG_AR
