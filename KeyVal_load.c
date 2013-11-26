@@ -65,7 +65,7 @@ static short get_input_char(FILE *fh) {
 }
 
 
-int KeyVal_load(struct KeyVal *keyval, const char *filename) {
+unsigned char KeyVal_load(struct KeyVal *keyval, const char *filename) {
 
   FILE *fh = fopen(filename, "r");
   if (!fh) {

@@ -6,6 +6,25 @@
 
 /* TODO
 
+X change all function signatures so that the return value is the error
+  code (0=success, nonzero=fail), and the result is stored as the
+  initial pointer parameters.
+  QA:
+  X am I compiling with warnings??
+  X all 'return's are either 0 or 1, and report correct status
+  X no functions that have return values are ignored
+  X every path through actually assigns *res..
+
+X make all array indexes 'unsigned long' instead of 'int'
+
+X make all booleans 'unsigned char' instead of 'int'
+
+X fix test.c to work with new API.
+
+- fix test failures.  :/
+
+- run this through valgrind!
+
 - perl/python/tcl frontends
 
 */
@@ -19,8 +38,8 @@ static const char *OUT = "/tmp/keyval.test.out";
 
 // declare functions I want to test here, but didn't want to include in the header file:
 char* KeyVal_interp(struct KeyVal *kv, const char *str);
-int   KeyVal_findIdealIndex(struct KeyVal *kv, const char *key);
-int   KeyVal_findIndex(struct KeyVal *kv, const char *key);
+unsigned char KeyVal_findIdealIndex(unsigned long *res, struct KeyVal *kv, const char *key);
+unsigned char KeyVal_findIndex(unsigned long *res, struct KeyVal *kv, const char *key);
 
 
 
@@ -78,11 +97,22 @@ _check_output(const char *expected) {
   return strcmp(buf, expected);  // so "0" means "match"
 }
 
+static void
+_check_err(unsigned char res_val, char *func_name) {
+  if (res_val) {
+    printf("[test-ERROR] error code from %s: %d\n", func_name, res_val);
+  } else {
+    // don't clutter stdout for non-errors
+  }
+  return;
+}
+
 
 static void
 test1() {
   
-  struct KeyVal *kv = KeyVal_new();
+  struct KeyVal *kv;
+  _check_err(KeyVal_new(&kv), "KeyVal_new");
 
   // 1a: missing file
   remove(IN);
@@ -120,13 +150,15 @@ test1() {
   _set_input("`key` = `val` #moo!");
   _check_load_return(kv, 1, "1j. detects comment after value");
 
-  KeyVal_delete(kv);
+  _check_err(KeyVal_delete(kv), "KeyVal_delete");
 }
 
 
 static void
 test2() {
-  struct KeyVal *kv = KeyVal_new();
+  struct KeyVal *kv;
+  _check_err(KeyVal_new(&kv), "KeyVal_new");
+
   // 2a: file with nothing in it
   FILE *fh = fopen(IN, "w");
   fclose(fh);
@@ -141,44 +173,58 @@ test2() {
   _check_load_return(kv, 0, "2c. comment-only input file");
 
   // 2d: save it out; should get nothing
-  KeyVal_save(kv, OUT, 0, 0);
+  _check_err(KeyVal_save(kv, OUT, 0, 0), "KeyVal_save");
   ok(_check_output("") == 0, "2d. writing out empty input generates empty output");
 
-  KeyVal_delete(kv);
+  _check_err(KeyVal_delete(kv), "KeyVal_delete");
 }
 
 static void
 test3() {
-  struct KeyVal *kv = KeyVal_new();
+  struct KeyVal *kv;
+  _check_err(KeyVal_new(&kv), "KeyVal_new");
 
   // 3a: unloaded kv should be empty:
-  ok(KeyVal_size(kv) == 0, "3a. uninitialized KeyVal empty");
+  unsigned long size;
+  _check_err(KeyVal_size(&size, kv), "KeyVal_size");
+  ok(size == 0, "3a. uninitialized KeyVal empty");
   // 3b: single-element file
   _set_input("`key` = `val`\n");  // minimal typical input
   if (!ok(KeyVal_load(kv, IN) == 0, "3b. reads single-element input")) return;
   // 3c: size set from file input
-  ok(KeyVal_size(kv) == 1, "3c. size of single-element input is 1");
+  _check_err(KeyVal_size(&size, kv), "KeyVal_size");
+  ok(size == 1, "3c. size of single-element input is 1");
 
   // 3d: search for element before it:
-  ok(KeyVal_getValue(kv, "asdf", 0) == 0, "3d. search for nonexistent 'asdf'");
+  char *value;
+  _check_err(KeyVal_getValue(&value, kv, "asdf", 0), "KeyVal_getValue");
+  if (!ok(value == 0, "3d. search for nonexistent 'asdf'")) {
+    printf(" - instead found '%s'!\n", value);
+  }
   // 3e: search for element after it:
-  ok(KeyVal_getValue(kv, "zxcv", 0) == 0, "3e. search for nonexistent 'zxcv'");
+  _check_err(KeyVal_getValue(&value, kv, "zxcv", 0), "KeyVal_getValue");
+  ok(value == 0, "3e. search for nonexistent 'zxcv'");
 
   // 3f: search for it itself:
-  const char *val = KeyVal_getValue(kv, "key", 0);
-  if (ok(val != 0, "3f. search for existing 'key'")) {
+  _check_err(KeyVal_getValue(&value, kv, "key", 0), "KeyVal_getValue");
+  if (ok(value != 0, "3f. search for existing 'key'")) {
     // 3g: has the right value:
-    ok(strcmp(val, "val") == 0, "3g. 'key' has value 'val'");
+    ok(strcmp(value, "val") == 0, "3g. 'key' has value 'val'");
   }
 
   // 3h: search for subset key:
-  ok(KeyVal_getValue(kv, "ke", 0) == 0, "3h. search for subset 'ke'");
+  _check_err(KeyVal_getValue(&value, kv, "ke", 0), "KeyVal_getValue");
+  if (!ok(value == 0, "3h. search for subset 'ke'")) {
+    printf(" - instead found '%s'!\n", value);
+  }
   // 3i: search for superset key:
-  ok(KeyVal_getValue(kv, "keysha", 0) == 0, "3i. search for superset 'keysha'");
+  _check_err(KeyVal_getValue(&value, kv, "keysha", 0), "KeyVal_getValue");
+  ok(value == 0, "3i. search for superset 'keysha'");
 
 
   // 3j: getKeys returns one thing
-  char ** keys = KeyVal_getKeys(kv, "");
+  char ** keys;
+  _check_err(KeyVal_getKeys(&keys, kv, ""), "KeyVal_getKeys");
   if (keys) {
     if (!ok(keys[0]!=0 && !strcmp(keys[0], "key") && keys[1]==0, "3j. getKeys returns ['key']")) {
       printf("keys returned:\n");
@@ -201,22 +247,25 @@ test3() {
 
 
   // 3k: save it out; should get single value
-  KeyVal_save(kv, OUT, 0, 0);
+  _check_err(KeyVal_save(kv, OUT, 0, 0), "KeyVal_save");
   ok(_check_output("`key` = `val`\n") == 0, "3k. writes out the single value");
 
 
   // 3l: removing element before:
-  KeyVal_remove(kv, "asdf");
-  ok(KeyVal_size(kv) == 1, "3l. removing nonexistent 'asdf'");
+  _check_err(KeyVal_remove(kv, "asdf"), "KeyVal_remove");
+  _check_err(KeyVal_size(&size, kv), "KeyVal_size");
+  ok(size == 1, "3l. removing nonexistent 'asdf'");
   // 3m: removing element after:
-  KeyVal_remove(kv, "zxcv");
-  ok(KeyVal_size(kv) == 1, "3m. removing nonexistent 'zxcv'");
+  _check_err(KeyVal_remove(kv, "zxcv"), "KeyVal_remove");
+  _check_err(KeyVal_size(&size, kv), "KeyVal_size");
+  ok(size == 1, "3m. removing nonexistent 'zxcv'");
   // 3n: removing element:
-  KeyVal_remove(kv, "key");
-  ok(KeyVal_size(kv) == 0, "3n. removing 'key'");
+  _check_err(KeyVal_remove(kv, "key"), "KeyVal_remove");
+  _check_err(KeyVal_size(&size, kv), "KeyVal_size");
+  ok(size == 0, "3n. removing 'key'");
 
   // 3o: getKeys returns nothing
-  keys = KeyVal_getKeys(kv, "");
+  _check_err(KeyVal_getKeys(&keys, kv, ""), "KeyVal_getKeys");
   if (keys) {
     ok(keys[0] == 0, "3o: getKeys now returns ['']");
     free(keys);
@@ -226,62 +275,70 @@ test3() {
   }
 
   // 3p: save it out; should get nothing now
-  KeyVal_save(kv, OUT, 0, 0);
+  _check_err(KeyVal_save(kv, OUT, 0, 0), "KeyVal_save");
   ok(_check_output("") == 0, "3p. writes out empty file");
 
-  KeyVal_delete(kv);
+  _check_err(KeyVal_delete(kv), "KeyVal_delete");
 }
 
 
 static void
 test4() {
-  struct KeyVal *kv = KeyVal_new();
+  struct KeyVal *kv;
+  _check_err(KeyVal_new(&kv), "KeyVal_new");
+
   // intentionally not in alphabetic order:
-  KeyVal_setValue(kv, "seagram's", "7");
-  KeyVal_setValue(kv, "jack", "daniel's");
+  _check_err(KeyVal_setValue(kv, "seagram's", "7"), "KeyVal_setValue");
+  _check_err(KeyVal_setValue(kv, "jack", "daniel's"), "KeyVal_setValue");
 
   // 4a. size set from setValues:
-  ok(KeyVal_size(kv) == 2, "4a. size=2");
+  unsigned long size;
+  _check_err(KeyVal_size(&size, kv), "KeyVal_size");
+  ok(size == 2, "4a. size=2");
 
   // 4b: search for first existing:
-  const char *val = KeyVal_getValue(kv, "jack", 0);
-  if (ok(val != 0, "4b. search for existing 'jack'")) {
+  char *value;
+  _check_err(KeyVal_getValue(&value, kv, "jack", 0), "KeyVal_getValue");
+  if (ok(value != 0, "4b. search for existing 'jack'")) {
     // 4c: has the right value:
-    ok(strcmp(val, "daniel's") == 0, "4c. jack => daniel's");
+    ok(strcmp(value, "daniel's") == 0, "4c. jack => daniel's");
   }
 
   // 4d: search for non-existing key that would be in the middle of existing ones
-  ok(KeyVal_getValue(kv, "jim::beam", 0) == 0, "4d. checking for mid-value nonexistent key");
+  _check_err(KeyVal_getValue(&value, kv, "jim::beam", 0), "KeyVal_getValue");
+  ok(value == 0, "4d. checking for mid-value nonexistent key");
 
   // 4e: search for last existing:
-  val = KeyVal_getValue(kv, "seagram's", 0);
-  if (ok(val != 0, "4e. search for existing 'seagram's'")) {
+  _check_err(KeyVal_getValue(&value, kv, "seagram's", 0), "KeyVal_getValue");
+  if (ok(value != 0, "4e. search for existing 'seagram's'")) {
     // 4f: has the right value:
-    ok(strcmp(val, "7") == 0, "4f. seagram's => 7");
+    ok(strcmp(value, "7") == 0, "4f. seagram's => 7");
   }
 
   // 4g: save it out; should get two lines in order
-  KeyVal_save(kv, OUT, 0, 0);
+  _check_err(KeyVal_save(kv, OUT, 0, 0), "KeyVal_save");
   ok(_check_output("`jack` = `daniel's`\n`seagram's` = `7`\n") == 0, "4g. writes out correctly");
 
   // 4h: remove one; should still have the other
-  KeyVal_remove(kv, "seagram's");
-  ok(KeyVal_size(kv) == 1, "4h. removing 'seagram's'");
-  val = KeyVal_getValue(kv, "jack", 0);
+  _check_err(KeyVal_remove(kv, "seagram's"), "KeyVal_remove");
+  _check_err(KeyVal_size(&size, kv), "KeyVal_size");
+  ok(size == 1, "4h. removing 'seagram's'");
+  _check_err(KeyVal_getValue(&value, kv, "jack", 0), "KeyVal_getValue");
   // 4i: removing one didn't affect the other's value, either:
-  if (ok(val != 0, "4i. 'jack' ok after removing seagram's")) {
+  if (ok(value != 0, "4i. 'jack' ok after removing seagram's")) {
     // 4j: has the right value:
-    ok(strcmp(val, "daniel's") == 0, "4j. jack => daniel's, still");
+    ok(strcmp(value, "daniel's") == 0, "4j. jack => daniel's, still");
   }
 
-  KeyVal_delete(kv);
+  _check_err(KeyVal_delete(kv), "KeyVal_delete");
 }
 
 
 static void
 test5() {
 
-  struct KeyVal *kv = KeyVal_new();
+  struct KeyVal *kv;
+  _check_err(KeyVal_new(&kv), "KeyVal_new");
 
   // 5a: key and val with escaped quote.  Input should look like this:
   // `\`key\\` = `\\val\``
@@ -291,26 +348,27 @@ test5() {
   if (!ok(KeyVal_load(kv, IN) == 0, "5a. reads escapes ok")) return;
 
   // 5b. escapes on the outside of key:
-  const char *val = KeyVal_getValue(kv, "`key\\", 0);
-  if (ok(val != 0, "5b. key with escapes at start and end")) {
+  char *value;
+  _check_err(KeyVal_getValue(&value, kv, "`key\\", 0), "KeyVal_getValue");
+  if (ok(value != 0, "5b. key with escapes at start and end")) {
 
     // 5c. escapes on the outsides of value:
-    ok(strcmp(val, "\\val`") == 0, "5c. value with escapes at start and end");
+    ok(strcmp(value, "\\val`") == 0, "5c. value with escapes at start and end");
   }
 
   // 5d. (consecutive) escapes in the middle of key:
-  val = KeyVal_getValue(kv, "key``key", 0);
-  if (ok(val != 0, "5d. key with consecutive escapes in middle")) {
+  _check_err(KeyVal_getValue(&value, kv, "key``key", 0), "KeyVal_getValue");
+  if (ok(value != 0, "5d. key with consecutive escapes in middle")) {
 
     // 5e. (consecutive) escapes in the middle of value:
-    ok(strcmp(val, "val\\\\val") == 0, "5e. value with consecutive escapes in middle");
+    ok(strcmp(value, "val\\\\val") == 0, "5e. value with consecutive escapes in middle");
   }
 
   // 5f. write out this nastiness:
-  KeyVal_save(kv, OUT, 0, 0);
+  _check_err(KeyVal_save(kv, OUT, 0, 0), "KeyVal_save");
   ok(_check_output(TEXT) == 0, "5f. escapes write out correctly");
 
-  KeyVal_delete(kv);
+  _check_err(KeyVal_delete(kv), "KeyVal_delete");
 }
 
 
@@ -359,10 +417,11 @@ test6() {
       // foreach third-key in none, 1..3847: (to make it ~million lines)
       for (int c = 0; c < 3847; ++c) {
 //for (int c = 0; c < 1; ++c) {
-        if (!c)
+        if (!c) {
           sprintf(key, "%s::%d", tmp, b);
-        else
+        } else {
           sprintf(key, "%s::%d::%d", tmp, b, c);
+        }
         reverse(val, key);
         fprintf(fh, "`%s` = `%s`\n", key, val);
       }
@@ -371,7 +430,8 @@ test6() {
   fclose(fh);
 
 
-  struct KeyVal *kv = KeyVal_new();
+  struct KeyVal *kv;
+  _check_err(KeyVal_new(&kv), "KeyVal_new");
 
   // 6a: reads the huge input (update for later: may want to report load-time?)
   //printf("loading huge file..\n");
@@ -379,11 +439,15 @@ test6() {
 //printf("done!!\n");
 
   // 6b: size is right
-  if (!ok(KeyVal_size(kv) == 1000246, "6b. big input has 1,000,246 settings"))
-    printf("  -> thinks it has %d settings\n", KeyVal_size(kv));
+  unsigned long size;
+  _check_err(KeyVal_size(&size, kv), "KeyVal_size");
+  if (!ok(size == 1000246, "6b. big input has 1,000,246 settings")) {
+    printf("  -> thinks it has %lu settings\n", size);
+  }
 
 
-  char **keys = KeyVal_getKeys(kv, "b_level");
+  char **keys;
+  _check_err(KeyVal_getKeys(&keys, kv, "b_level"), "KeyVal_getKeys");
   if (keys) {
     // count them; should be 11, which means it returns downstream sub-keys only once
     int num_keys = 0;
@@ -410,7 +474,7 @@ test6() {
   }
 
   // check that getAllKeys at least doesn't do nothing:
-  keys = KeyVal_getAllKeys(kv);
+  _check_err(KeyVal_getAllKeys(&keys, kv), "KeyVal_getAllKeys");
   if (keys) {
     int count = 0;
     while (keys[count]) {
@@ -424,194 +488,217 @@ test6() {
   else {
     printf("[UNEXPECTED-4] getAllKeys should never return a null result\n");
   }
-    
+
   // random getValue, just 'cuz:
-  char *v = KeyVal_getValue(kv, "o_level::3::1500", 0);
-  if (ok(v != 0, "6p. random key in the middle exists")) {
-    ok(strcmp(v, "0051::3::level_o") == 0,
+  char *value;
+  _check_err(KeyVal_getValue(&value, kv, "o_level::3::1500", 0), "KeyVal_getValue");
+  if (ok(value != 0, "6p. random key in the middle exists")) {
+    ok(strcmp(value, "0051::3::level_o") == 0,
         "6q. random key has the right value");
   }
 
   // hasValue:
-  ok(KeyVal_hasValue(kv, "c_level::2::42"), "6q. hasValue on value");
-  KeyVal_remove(kv, "b_level::1");  // need a strict sub-key to test [6r]
-  ok(!KeyVal_hasValue(kv, "b_level::1"), "6r. hasValue on keys");
-  ok(!KeyVal_hasValue(kv, "c_level::moo"), "6s. hasValue on nothing");
+  unsigned char boolflag;
+  _check_err(KeyVal_hasValue(&boolflag, kv, "c_level::2::42"), "KeyVal_hasValue");
+  ok(boolflag, "6q. hasValue on value");
+  _check_err(KeyVal_remove(kv, "b_level::1"), "KeyVal_remove");  // need a strict sub-key to test [6r]
+  _check_err(KeyVal_hasValue(&boolflag, kv, "b_level::1"), "KeyVal_hasValue");
+  ok(!boolflag, "6r. hasValue on keys");
+  _check_err(KeyVal_hasValue(&boolflag, kv, "c_level::moo"), "KeyVal_hasValue");
+  ok(!boolflag, "6s. hasValue on nothing");
 
   // hasKeys:
-  ok(!KeyVal_hasKeys(kv, "c_level::2::42"), "6t. hasKeys on value");
-  ok(KeyVal_hasKeys(kv, "c_level::2"), "6u. hasKeys on keys");
-  ok(!KeyVal_hasKeys(kv, "c_level::moo"), "6v. hasKeys on nothing");
+  _check_err(KeyVal_hasKeys(&boolflag, kv, "c_level::2::42"), "KeyVal_hasKeys");
+  ok(!boolflag, "6t. hasKeys on value");
+  _check_err(KeyVal_hasKeys(&boolflag, kv, "c_level::2"), "KeyVal_hasKeys");
+  ok(boolflag, "6u. hasKeys on keys");
+  _check_err(KeyVal_hasKeys(&boolflag, kv, "c_level::moo"), "KeyVal_hasKeys");
+  ok(!boolflag, "6v. hasKeys on nothing");
 
   // exists::
-  ok(KeyVal_exists(kv, "c_level::2::42"), "6w. exists on value");
-  ok(KeyVal_exists(kv, "c_level::2"), "6x. exists on keys");
-  ok(!KeyVal_exists(kv, "c_level::moo"), "6y. exists on nothing");
+  _check_err(KeyVal_exists(&boolflag, kv, "c_level::2::42"), "KeyVal_exists");
+  ok(boolflag, "6w. exists on value");
+  _check_err(KeyVal_exists(&boolflag, kv, "c_level::2"), "KeyVal_exists");
+  ok(boolflag, "6x. exists on keys");
+  _check_err(KeyVal_exists(&boolflag, kv, "c_level::moo"), "KeyVal_exists");
+  ok(!boolflag, "6y. exists on nothing");
 
 
 //KeyVal_save(kv, OUT, 0, 0);  //DEBUG
 //printf("--saved to '%s'\n", OUT);
 
-  KeyVal_delete(kv);
+  _check_err(KeyVal_delete(kv), "KeyVal_delete");
 }
 
 static void
 test7() {
-  struct KeyVal *kv = KeyVal_new();
+  struct KeyVal *kv;
+  _check_err(KeyVal_new(&kv), "KeyVal_new");
 
   // empty arrays:
-  ok(KeyVal_findIdealIndex(kv, "a") == 0, "7a. findIdealIndex ok on empty array");
-  ok(KeyVal_findIndex(kv, "a") == -1, "7b. findIndex ok on empty array");
-  //ok(KeyVal_find(kv, "a") == 0, "7c. find ok on empty array");
+  unsigned long index;
+  _check_err(KeyVal_findIdealIndex(&index, kv, "a"), "KeyVal_findIdealIndex");
+  ok(index == 0, "7a. findIdealIndex ok on empty array");
+  ok(KeyVal_findIndex(&index, kv, "a") == 2, "7b. findIndex ok on empty array");
 
   // one element:
-  KeyVal_setValue(kv, "2", "asdf");
+  _check_err(KeyVal_setValue(kv, "2", "asdf"), "KeyVal_setValue");
   // searching something that should go in front:
-  ok(KeyVal_findIdealIndex(kv, "1") == 0, "7d. findIdealIndex-1 ok on array1");
-  ok(KeyVal_findIndex(kv, "1") == -1, "7e. findIndex-1 ok on array1");
-  //ok(KeyVal_find(kv, "1") == 0, "7f. find-1 ok on array1");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "1"), "KeyVal_findIdealIndex");
+  ok(index == 0, "7d. findIdealIndex-1 ok on array1");
+  ok(KeyVal_findIndex(&index, kv, "1") == 2, "7e. findIndex-1 ok on array1");
   // searching the one thing that's in it:
-  ok(KeyVal_findIdealIndex(kv, "2") == 0, "7g. findIdealIndex-2 ok on array1");
-  ok(KeyVal_findIndex(kv, "2") == 0, "7h. findIndex-2 ok on array1");
-  //ok(KeyVal_find(kv, "2") != 0, "7i. find-2 ok on array1");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "2"), "KeyVal_findIdealIndex");
+  ok(index == 0, "7g. findIdealIndex-2 ok on array1");
+  _check_err(KeyVal_findIndex(&index, kv, "2"), "KeyVal_findIndex");
+  ok(index == 0, "7h. findIndex-2 ok on array1");
   // searching something that should go at the end:
-  ok(KeyVal_findIdealIndex(kv, "3") == 1, "7j. findIdealIndex-3 ok on array1");
-  ok(KeyVal_findIndex(kv, "3") == -1, "7k. findIndex-3 ok on array1");
-  //ok(KeyVal_find(kv, "3") == 0, "7l. find-3 ok on array1");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "3"), "KeyVal_findIdealIndex");
+  ok(index == 1, "7j. findIdealIndex-3 ok on array1");
+  ok(KeyVal_findIndex(&index, kv, "3") == 2, "7k. findIndex-3 ok on array1");
 
   // two elements:
-  KeyVal_setValue(kv, "4", "asdf");
+  _check_err(KeyVal_setValue(kv, "4", "asdf"), "KeyVal_setValue");
   // searching something that should go in front:
-  ok(KeyVal_findIdealIndex(kv, "1") == 0, "7m. findIdealIndex-1 ok on array2");
-  ok(KeyVal_findIndex(kv, "1") == -1, "7n. findIndex-1 ok on array2");
-  //ok(KeyVal_find(kv, "1") == 0, "7o. find-1 ok on array2");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "1"), "KeyVal_findIdealIndex");
+  ok(index == 0, "7m. findIdealIndex-1 ok on array2");
+  ok(KeyVal_findIndex(&index, kv, "1") == 2, "7n. findIndex-1 ok on array2");
   // searching the first thing that's in it:
-  ok(KeyVal_findIdealIndex(kv, "2") == 0, "7p. findIdealIndex-2 ok on array2");
-  ok(KeyVal_findIndex(kv, "2") == 0, "7q. findIndex-2 ok on array2");
-  //ok(KeyVal_find(kv, "2") != 0, "7r. find-2 ok on array2");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "2"), "KeyVal_findIdealIndex");
+  ok(index == 0, "7p. findIdealIndex-2 ok on array2");
+  _check_err(KeyVal_findIndex(&index, kv, "2"), "KeyVal_findIndex");
+  ok(index == 0, "7q. findIndex-2 ok on array2");
   // searching something that should go in the middle:
-  ok(KeyVal_findIdealIndex(kv, "3") == 1, "7s. findIdealIndex-3 ok on array2");
-  ok(KeyVal_findIndex(kv, "3") == -1, "7t. findIndex-3 ok on array2");
-  //ok(KeyVal_find(kv, "3") == 0, "7u. find-3 ok on array2");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "3"), "KeyVal_findIdealIndex");
+  ok(index == 1, "7s. findIdealIndex-3 ok on array2");
+  ok(KeyVal_findIndex(&index, kv, "3") == 2, "7t. findIndex-3 ok on array2");
   // searching the second thing that's in it:
-  ok(KeyVal_findIdealIndex(kv, "4") == 1, "7v. findIdealIndex-4 ok on array2");
-  ok(KeyVal_findIndex(kv, "4") == 1, "7w. findIndex-4 ok on array2");
-  //ok(KeyVal_find(kv, "4") != 0, "7x. find-4 ok on array2");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "4"), "KeyVal_findIdealIndex");
+  ok(index == 1, "7v. findIdealIndex-4 ok on array2");
+  _check_err(KeyVal_findIndex(&index, kv, "4"), "KeyVal_findIndex");
+  ok(index == 1, "7w. findIndex-4 ok on array2");
   // searching something that should go at the end:
-  ok(KeyVal_findIdealIndex(kv, "5") == 2, "7y. findIdealIndex-5 ok on array2");
-  ok(KeyVal_findIndex(kv, "5") == -1, "7z. findIndex-5 ok on array2");
-  //ok(KeyVal_find(kv, "5") == 0, "7aa. find-5 ok on array2");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "5"), "KeyVal_findIdealIndex");
+  ok(index == 2, "7y. findIdealIndex-5 ok on array2");
+  ok(KeyVal_findIndex(&index, kv, "5") == 2, "7z. findIndex-5 ok on array2");
 
   // three elements:
-  KeyVal_setValue(kv, "6", "asdf");
+  _check_err(KeyVal_setValue(kv, "6", "asdf"), "KeyVal_setValue");
   // searching something that should go in front:
-  ok(KeyVal_findIdealIndex(kv, "1") == 0, "7ab. findIdealIndex-1 ok on array3");
-  ok(KeyVal_findIndex(kv, "1") == -1, "7ac. findIndex-1 ok on array3");
-  //ok(KeyVal_find(kv, "1") == 0, "7ad. find-1 ok on array3");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "1"), "KeyVal_findIdealIndex");
+  ok(index == 0, "7ab. findIdealIndex-1 ok on array3");
+  ok(KeyVal_findIndex(&index, kv, "1") == 2, "7ac. findIndex-1 ok on array3");
   // searching the first thing that's in it:
-  ok(KeyVal_findIdealIndex(kv, "2") == 0, "7ae. findIdealIndex-2 ok on array3");
-  ok(KeyVal_findIndex(kv, "2") == 0, "7af. findIndex-2 ok on array3");
-  //ok(KeyVal_find(kv, "2") != 0, "7ag. find-2 ok on array3");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "2"), "KeyVal_findIdealIndex");
+  ok(index == 0, "7ae. findIdealIndex-2 ok on array3");
+  _check_err(KeyVal_findIndex(&index, kv, "2"), "KeyVal_findIndex");
+  ok(index == 0, "7af. findIndex-2 ok on array3");
   // searching something that should go in the middle:
-  ok(KeyVal_findIdealIndex(kv, "3") == 1, "7ah. findIdealIndex-3 ok on array3");
-  ok(KeyVal_findIndex(kv, "3") == -1, "7ai. findIndex-3 ok on array3");
-  //ok(KeyVal_find(kv, "3") == 0, "7aj. find-3 ok on array3");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "3"), "KeyVal_findIdealIndex");
+  ok(index == 1, "7ah. findIdealIndex-3 ok on array3");
+  ok(KeyVal_findIndex(&index, kv, "3") == 2, "7ai. findIndex-3 ok on array3");
   // searching the second thing that's in it:
-  ok(KeyVal_findIdealIndex(kv, "4") == 1, "7ak. findIdealIndex-4 ok on array3");
-  ok(KeyVal_findIndex(kv, "4") == 1, "7al. findIndex-4 ok on array3");
-  //ok(KeyVal_find(kv, "4") != 0, "7am. find-4 ok on array3");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "4"), "KeyVal_findIdealIndex");
+  ok(index == 1, "7ak. findIdealIndex-4 ok on array3");
+  _check_err(KeyVal_findIndex(&index, kv, "4"), "KeyVal_findIndex");
+  ok(index == 1, "7al. findIndex-4 ok on array3");
   // searching something that should go in the middle:
-  ok(KeyVal_findIdealIndex(kv, "5") == 2, "7an. findIdealIndex-5 ok on array3");
-  ok(KeyVal_findIndex(kv, "5") == -1, "7ao. findIndex-5 ok on array3");
-  //ok(KeyVal_find(kv, "5") == 0, "7ap. find-5 ok on array3");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "5"), "KeyVal_findIdealIndex");
+  ok(index == 2, "7an. findIdealIndex-5 ok on array3");
+  ok(KeyVal_findIndex(&index, kv, "5") == 2, "7ao. findIndex-5 ok on array3");
   // searching the second thing that's in it:
-  ok(KeyVal_findIdealIndex(kv, "6") == 2, "7aq. findIdealIndex-6 ok on array3");
-  ok(KeyVal_findIndex(kv, "6") == 2, "7ar. findIndex-6 ok on array3");
-  //ok(KeyVal_find(kv, "6") != 0, "7as. find-6 ok on array3");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "6"), "KeyVal_findIdealIndex");
+  ok(index == 2, "7aq. findIdealIndex-6 ok on array3");
+  _check_err(KeyVal_findIndex(&index, kv, "6"), "KeyVal_findIndex");
+  ok(index == 2, "7ar. findIndex-6 ok on array3");
   // searching something that should go at the end:
-  ok(KeyVal_findIdealIndex(kv, "7") == 3, "7at. findIdealIndex-7 ok on array3");
-  ok(KeyVal_findIndex(kv, "7") == -1, "7au. findIndex-7 ok on array3");
-  //ok(KeyVal_find(kv, "7") == 0, "7av. find-7 ok on array3");
+  _check_err(KeyVal_findIdealIndex(&index, kv, "7"), "KeyVal_findIdealIndex");
+  ok(index == 3, "7at. findIdealIndex-7 ok on array3");
+  ok(KeyVal_findIndex(&index, kv, "7") == 2, "7au. findIndex-7 ok on array3");
 
-  // we'll assume all larger cases successfully degrade into one of the above :)
+  // we'll assume all larger cases successfully degrade into one of the
+  // above.  Yay, partition testing!
 
-  KeyVal_delete(kv);
+  _check_err(KeyVal_delete(kv), "KeyVal_delete");
 }
 
 static void test8() {
-  struct KeyVal *kv = KeyVal_new();
+  struct KeyVal *kv;
+  _check_err(KeyVal_new(&kv), "KeyVal_new");
 
-  KeyVal_setValue(kv, "k1", "2");
-  KeyVal_setValue(kv, "k2", "asdf${k1}zxcv");  // in middle
-  KeyVal_setValue(kv, "k3", "${k1}zxcv");  // at beginning
-  KeyVal_setValue(kv, "k4", "asdf${k1}");  // at end
-  KeyVal_setValue(kv, "k5", "a${k1}b${k1}${k1}c");  // multiple values
-  KeyVal_setValue(kv, "k6", "${k${k1}}");   // embedded variables
-  KeyVal_setValue(kv, "k7", "}${");   // weird string 1
-  KeyVal_setValue(kv, "k8", "${}");   // weird string 2
-  KeyVal_setValue(kv, "k9", "${k10}");   // mutually recursive variables
-  KeyVal_setValue(kv, "k10", "${k9}");   // mutually recursive variables
+  _check_err(KeyVal_setValue(kv, "k1", "2"), "KeyVal_setValue");
+  _check_err(KeyVal_setValue(kv, "k2", "asdf${k1}zxcv"), "KeyVal_setValue");  // in middle
+  _check_err(KeyVal_setValue(kv, "k3", "${k1}zxcv"), "KeyVal_setValue");  // at beginning
+  _check_err(KeyVal_setValue(kv, "k4", "asdf${k1}"), "KeyVal_setValue");  // at end
+  _check_err(KeyVal_setValue(kv, "k5", "a${k1}b${k1}${k1}c"), "KeyVal_setValue");  // multiple values
+  _check_err(KeyVal_setValue(kv, "k6", "${k${k1}}"), "KeyVal_setValue");   // embedded variables
+  _check_err(KeyVal_setValue(kv, "k7", "}${"), "KeyVal_setValue");   // weird string 1
+  _check_err(KeyVal_setValue(kv, "k8", "${}"), "KeyVal_setValue");   // weird string 2
+  _check_err(KeyVal_setValue(kv, "k9", "${k10}"), "KeyVal_setValue");   // mutually recursive variables
+  _check_err(KeyVal_setValue(kv, "k10", "${k9}"), "KeyVal_setValue");   // mutually recursive variables
 
-  char *val = KeyVal_getValue(kv, "k2", 1);
-  if (!ok(strcmp(val, "asdf2zxcv") == 0, "8a. variable in middle of string")) {
-    printf(" - got '%s' instead of 'asdf2zxcv'\n", val);
+  char *value;
+  _check_err(KeyVal_getValue(&value, kv, "k2", 1), "KeyVal_getValue");
+  if (!ok(strcmp(value, "asdf2zxcv") == 0, "8a. variable in middle of string")) {
+    printf(" - got '%s' instead of 'asdf2zxcv'\n", value);
   }
-  free(val);  // because we interpolate vars
+  free(value);
 
-  val = KeyVal_getValue(kv, "k3", 1);
-  ok(strcmp(val, "2zxcv") == 0, "8b. variable at beginning of string");
-  free(val);  // because we interpolate vars
+  _check_err(KeyVal_getValue(&value, kv, "k3", 1), "KeyVal_getValue");
+  ok(strcmp(value, "2zxcv") == 0, "8b. variable at beginning of string");
+  free(value);
 
-  val = KeyVal_getValue(kv, "k4", 1);
-  ok(strcmp(val, "asdf2") == 0, "8c. variable at end of string");
-  free(val);  // because we interpolate vars
+  _check_err(KeyVal_getValue(&value, kv, "k4", 1), "KeyVal_getValue");
+  ok(strcmp(value, "asdf2") == 0, "8c. variable at end of string");
+  free(value);
 
-  val = KeyVal_getValue(kv, "k5", 1);
-  ok(strcmp(val, "a2b22c") == 0, "8d. multiple variables in the string");
-  free(val);  // because we interpolate vars
+  _check_err(KeyVal_getValue(&value, kv, "k5", 1), "KeyVal_getValue");
+  ok(strcmp(value, "a2b22c") == 0, "8d. multiple variables in the string");
+  free(value);
 
-  val = KeyVal_getValue(kv, "k6", 1);
-  ok(strcmp(val, "asdf2zxcv") == 0, "8e. embedded variables");
-  free(val);  // because we interpolate vars
+  _check_err(KeyVal_getValue(&value, kv, "k6", 1), "KeyVal_getValue");
+  ok(strcmp(value, "asdf2zxcv") == 0, "8e. embedded variables");
+  free(value);
 
-  val = KeyVal_getValue(kv, "k7", 1);
-  ok(strcmp(val, "}${") == 0, "8f. weird initial closing brace");
-  free(val);  // because we interpolate vars
+  _check_err(KeyVal_getValue(&value, kv, "k7", 1), "KeyVal_getValue");
+  ok(strcmp(value, "}${") == 0, "8f. weird initial closing brace");
+  free(value);
 
-  val = KeyVal_getValue(kv, "k8", 1);
-  ok(strcmp(val, "${}") == 0, "8g. empty variable name");
-  free(val);  // because we interpolate vars
+  _check_err(KeyVal_getValue(&value, kv, "k8", 1), "KeyVal_getValue");
+  ok(strcmp(value, "${}") == 0, "8g. empty variable name");
+  free(value);
 
-  val = KeyVal_getValue(kv, "k9", 1);
-  ok(val == 0, "8h. recursive variables detected");
+  unsigned char getvalue_res = KeyVal_getValue(&value, kv, "k9", 1);
+  ok(getvalue_res == 2, "8h. recursive variables detected");
 
-  KeyVal_delete(kv);
+  _check_err(KeyVal_delete(kv), "KeyVal_delete");
 }
 
 static void test9() {
-  struct KeyVal *kv = KeyVal_new();
+  struct KeyVal *kv;
+  _check_err(KeyVal_new(&kv), "KeyVal_new");
 
-  KeyVal_setValue(kv, "k1", "k3");            // sets k1 to k3
-  KeyVal_setValue(kv, "k2::k3", "${k1}");     // sets k2::k3 to "k3"
-  KeyVal_setValue(kv, "k4", "${k2::${k1}}");  // sets k4 to "k3"
+  _check_err(KeyVal_setValue(kv, "k1", "k3"), "KeyVal_setValue");            // sets k1 to k3
+  _check_err(KeyVal_setValue(kv, "k2::k3", "${k1}"), "KeyVal_setValue");     // sets k2::k3 to "k3"
+  _check_err(KeyVal_setValue(kv, "k4", "${k2::${k1}}"), "KeyVal_setValue");  // sets k4 to "k3"
 
   // baseline writing:
-  KeyVal_save(kv, OUT, 0, 0);
+  _check_err(KeyVal_save(kv, OUT, 0, 0), "KeyVal_save");
   ok(_check_output("`k1` = `k3`\n`k2::k3` = `${k1}`\n`k4` = `${k2::${k1}}`\n") == 0, "9a. saving with interp=0, align=0");
 
   // writing with just interp:
-  KeyVal_save(kv, OUT, 1, 0);
+  _check_err(KeyVal_save(kv, OUT, 1, 0), "KeyVal_save");
   ok(_check_output("`k1` = `k3`\n`k2::k3` = `k3`\n`k4` = `k3`\n") == 0, "9b. saving with interp=1, align=0");
 
   // writing with just align:
-  KeyVal_save(kv, OUT, 0, 1);
+  _check_err(KeyVal_save(kv, OUT, 0, 1), "KeyVal_save");
   ok(_check_output("`k1`     = `k3`\n`k2::k3` = `${k1}`\n`k4`     = `${k2::${k1}}`\n") == 0, "9c. saving with interp=0, align=1");
 
   // writing with both interp and align:
-  KeyVal_save(kv, OUT, 1, 1);
+  _check_err(KeyVal_save(kv, OUT, 1, 1), "KeyVal_save");
   ok(_check_output("`k1`     = `k3`\n`k2::k3` = `k3`\n`k4`     = `k3`\n") == 0, "9d. saving with interp=1, align=1");
 
-  KeyVal_delete(kv);
+  _check_err(KeyVal_delete(kv), "KeyVal_delete");
 }
 
 
@@ -666,7 +753,6 @@ int main(int argc, char **argv) {
   // because we test several error conditions and don't want the spewage:
   extern unsigned char KEYVAL_QUIET;
   KEYVAL_QUIET = 1;
-
 
   test1();  // test 1: error conditions (missing file, syntax problems)
   test2();  // test 2: valid but content-less files (empty, all whitespace, all comments)
