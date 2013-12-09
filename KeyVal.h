@@ -1,10 +1,28 @@
 #ifndef KEYVAL_H
 #define KEYVAL_H
 
+
 //////////////////////////////////////// KeyValElement
 
-struct KeyValElement;
-struct KeyVal;
+struct KeyValElement{
+  // KeyValElement stores a single key-value pair.  Users should never need to
+  // work with these, or even know they exist.
+  char *key;  // owned by object
+  char *val;  // owned by object
+};
+
+
+//////////////////////////////////////// KeyVal
+
+struct KeyVal {
+  // KeyVal is implemented as a doubling array of KeyValElements, which is then
+  // searched using binary search.  The elements of the doubling array are
+  // lazy-sorted on demand.
+  struct KeyValElement **data;  // array of pointers
+  unsigned long max_size;  // total number of slots available in data.  0 <= MIN_SIZE <= max_size
+  unsigned long used_size; // total number of slots used.  0 <= used_size <= max_size
+  unsigned long last_sorted;  // number of sorted elements.  1 <= last_sorted <= used_size
+};
 
 
 // Creates a new KeyVal object.
@@ -252,7 +270,6 @@ unsigned char
 //   if (exists) ..
 unsigned char
   KeyVal_exists(unsigned char *res, struct KeyVal *kv, const char *key_or_path);
-
 
 
 

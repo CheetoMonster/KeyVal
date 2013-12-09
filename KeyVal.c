@@ -21,13 +21,6 @@ static const char *ERRSTR = "%s: '%s' argument null\n";
 
 //////////////////////////////////////// KeyValElement
 
-struct KeyValElement{
-  // KeyValElement stores a single key-value pair.  Users should never need to
-  // work with these, or even know they exist.
-  char *key;  // owned by object
-  char *val;  // owned by object
-};
-
 // Creates a new KeyValElement, and initializes data to a copy of the given
 // parameters.
 // Returns:
@@ -97,16 +90,6 @@ KeyValElement_delete(struct KeyValElement *element) {
 
 
 //////////////////////////////////////// KeyVal
-
-struct KeyVal {
-  // KeyVal is implemented as a doubling array of KeyValElements, which is then
-  // searched using binary search.  The elements of the doubling array are
-  // lazy-sorted on demand.
-  struct KeyValElement **data;  // array of pointers
-  unsigned long max_size;  // total number of slots available in data.  0 <= MIN_SIZE <= max_size
-  unsigned long used_size; // total number of slots used.  0 <= used_size <= max_size
-  unsigned long last_sorted;  // number of sorted elements.  1 <= last_sorted <= used_size
-};
 
 // KeyVal_strcmp
 // We need a custom strcmp because we need "::" to be handled differently.  With
@@ -1248,6 +1231,11 @@ KeyVal_hasKeys(unsigned char *res, struct KeyVal *kv, const char *path) {
     // exact match, so the path is itself a valid key.  Which we skip, in case
     // the next one has keys:
     ++idx;
+    // did that just go off the end of the list?
+    if (kv->used_size == idx) {
+      *res = 0;
+      return 0;
+    }
   }
 
   // check to see if we have a subkey of this path:
@@ -1307,8 +1295,6 @@ KeyVal_exists(unsigned char *res, struct KeyVal *kv, const char *key_or_path) {
   }
   return 0;
 }
-
-
 
 
 //////////////////////////////////////// debugging
