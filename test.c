@@ -6,9 +6,38 @@
 
 /* TODO
 
-- run this through valgrind!
+- run this through valgrind, which has to be done on a non-Mac system because
+  the latest valgrind (3.9.0) warns that the Mac version is "experimental and mostly
+  broken."
 
-- perl/python/tcl frontends
+- python/tcl frontends
+
+  HOWTO:
+  - run "swig -perl5 [-module KeyVal_C_API] KeyVal.i" to generate KeyVal_wrap.c
+  - run "set P=`perl -e 'use Config; print $Config{archlib};'`" to get the path to perl stuff
+  - run "gcc -I $P/CORE KeyVal_wrap.c -o KeyVal_wrap.o" to build it
+  - run "gcc -shared KeyVal.o KeyVal_load.o KeyVal_wrap.o $P/CORE/libperl.dylib -o KeyVal_C_API.dylib" to build it
+  - voila!  Now you can run "perl -MKeyVal_C_API" and it works!
+*/
+
+/* NOTES
+
+- the perl interface leaks memory:
+  - the strings returned by getValue, and the strings and arrays returned by
+    both getKeys and getAllKeys, are never free'd.  I suspect the real solution
+    is defining custom SWIG typemaps for those 3 functions.
+  - however, the input string parameters to various functions are probably
+    already okay.  SWIG defines 'freearg' typemaps for them.
+
+- the perl interface files should be installed by you.
+  - I leave it to you, fearless user, to decide exactly where you want to put
+    the pm and dylib/so files.  (You could put them in your perl's local area
+    so that they're kind of bundled with that perl, or you could put them in
+    a custom area and point scripts/PERL5LIB to it.)  After building, the files
+    you need to install are:
+    - perl/KeyVal_C_API.pm
+    - perl/KeyVal.pm
+    - perl/$version/$archname/KeyVal_C_API.dylib
 
 */
 
@@ -228,38 +257,50 @@ test3() {
     printf("[UNEXPECTED-1] getKeys should never return a null result");
   }
 
+  // 3k: hasValue should find it:
+  unsigned char boolflag;
+  _check_err(KeyVal_hasValue(&boolflag, kv, "key"), "KeyVal_hasValue");
+  ok(boolflag == 1, "3k. hasValue finds 'key'");
 
-  // 3k: save it out; should get single value
+  // 3l: hasKeys should not segfault on it:
+  _check_err(KeyVal_hasKeys(&boolflag, kv, "key"), "KeyVal_hasKeys");
+  ok(boolflag == 0, "3l. hasKeys does not segfault on last element, and doesn't report 'key'");
+
+  // 3m: exists should also find it:
+  _check_err(KeyVal_exists(&boolflag, kv, "key"), "KeyVal_exists");
+  ok(boolflag == 1, "3m. exists finds 'key'");
+
+  // 3n: save it out; should get single value
   _check_err(KeyVal_save(kv, OUT, 0, 0), "KeyVal_save");
-  ok(_check_output("`key` = `val`\n") == 0, "3k. writes out the single value");
+  ok(_check_output("`key` = `val`\n") == 0, "3n. writes out the single value");
 
 
-  // 3l: removing element before:
+  // 3o: removing element before:
   _check_err(KeyVal_remove(kv, "asdf"), "KeyVal_remove");
   _check_err(KeyVal_size(&size, kv), "KeyVal_size");
-  ok(size == 1, "3l. removing nonexistent 'asdf'");
-  // 3m: removing element after:
+  ok(size == 1, "3o. removing nonexistent 'asdf'");
+  // 3p: removing element after:
   _check_err(KeyVal_remove(kv, "zxcv"), "KeyVal_remove");
   _check_err(KeyVal_size(&size, kv), "KeyVal_size");
-  ok(size == 1, "3m. removing nonexistent 'zxcv'");
-  // 3n: removing element:
+  ok(size == 1, "3p. removing nonexistent 'zxcv'");
+  // 3q: removing element:
   _check_err(KeyVal_remove(kv, "key"), "KeyVal_remove");
   _check_err(KeyVal_size(&size, kv), "KeyVal_size");
-  ok(size == 0, "3n. removing 'key'");
+  ok(size == 0, "3q. removing 'key'");
 
-  // 3o: getKeys returns nothing
+  // 3r: getKeys returns nothing
   _check_err(KeyVal_getKeys(&keys, kv, ""), "KeyVal_getKeys");
   if (keys) {
-    ok(keys[0] == 0, "3o: getKeys now returns ['']");
+    ok(keys[0] == 0, "3r: getKeys now returns ['']");
     free(keys);
   }
   else {
     printf("[UNEXPECTED-2] getKeys should never return a null result");
   }
 
-  // 3p: save it out; should get nothing now
+  // 3s: save it out; should get nothing now
   _check_err(KeyVal_save(kv, OUT, 0, 0), "KeyVal_save");
-  ok(_check_output("") == 0, "3p. writes out empty file");
+  ok(_check_output("") == 0, "3s. writes out empty file");
 
   _check_err(KeyVal_delete(kv), "KeyVal_delete");
 }
