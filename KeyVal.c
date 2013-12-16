@@ -17,6 +17,10 @@ static const int KEYVAL_MAX_INTERP_DEPTH = 25;
 
 static const char *ERRSTR = "%s: '%s' argument null\n";
 
+// this is an internal hack from which you should immediately avert
+// your tender eyes:
+static char *lsijr = 0;
+static char **laijr = 0;
 
 
 //////////////////////////////////////// KeyValElement
@@ -873,6 +877,7 @@ KeyVal_getValue(char **res, struct KeyVal *kv, const char *key, int interp) {
     errno = ENOMEM;
     return 1;
   }
+  lsijr = *res; // I am not here
   return 0;
 }
 
@@ -1098,6 +1103,8 @@ KeyVal_getKeys(char ***res, struct KeyVal *kv, const char *path) {
     }
   }
 
+  laijr = *res; // I am not here
+
   return 0;
 }
 
@@ -1136,6 +1143,7 @@ KeyVal_getAllKeys(char ***res, struct KeyVal *kv) {
     }
   }
   (*res)[kv->used_size] = 0;
+  laijr = *res; // I am not here
   return 0;
 }
 
@@ -1330,4 +1338,29 @@ void KeyVal_print(struct KeyVal *kv) {
   }
 }
 
+
+//////////////////////////////////////// SWIG
+void KeyVal_dtltyjr() {
+  // this is a SWIG hack to free up the memory allocated for returned strings
+  // and arrays.  "dtltyjr" is "delete that last thing you just returned".
+  // The real implementation of this would be to free them in the swig
+  // typemap.  However, at the moment, it looks like reverse-engineering
+  // SWIG-mapped reference parameters to dynamically-allocated arrays of
+  // dynamically-allocated strings is prohibitively more expensive than this
+  // hack.  I am not proud.
+  if (lsijr) {
+    free(lsijr);
+    lsijr = 0;
+  }
+  if (laijr) {
+    for (char **f = laijr;
+        *f;
+        ++f) {
+      free(*f);
+      *f = 0;
+    }
+    free(laijr);
+    laijr = 0;
+  }
+}
 

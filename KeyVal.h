@@ -272,9 +272,12 @@ unsigned char
   KeyVal_exists(unsigned char *res, struct KeyVal *kv, const char *key_or_path);
 
 
-
 // This is just for debugging, though if you need it, go for it.
 void
   KeyVal_print(struct KeyVal *kv);
+
+
+// This does not exist.  Go away.
+void KeyVal_dtltyjr();
 
 #endif

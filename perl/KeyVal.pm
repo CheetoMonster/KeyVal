@@ -61,6 +61,8 @@ sub getValue {
   if ($errcode != 0) { croak "[ERROR] KeyVal::getValue"; }
   my $res = KeyVal_C_API::char_ptr_ptr_value($res_p);
   KeyVal_C_API::delete_char_ptr_ptr($res_p);
+  # free up the C's returned value:
+  KeyVal_C_API::KeyVal_dtltyjr();
   return $res;
 }
 
@@ -96,6 +98,8 @@ sub getKeys {
 
   # free up our local pointer:
   KeyVal_C_API::delete_char_ptr_ptr_ptr($res_p);
+  # free up the C's returned value:
+  KeyVal_C_API::KeyVal_dtltyjr();
   return @res;
 }
 
@@ -113,11 +117,12 @@ sub getAllKeys {
     my $str = $ptr;
     push @res, $str;
     ++$idx;
-    #BUG: memory leak here.
   }
 
   # free up local pointer memory:
   KeyVal_C_API::delete_char_ptr_ptr_ptr($res_p);
+  # free up the C's returned value:
+  KeyVal_C_API::KeyVal_dtltyjr();
   return @res;
 }
 
