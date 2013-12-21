@@ -16,10 +16,11 @@ sub new {
 
   my $self = {};
 
-  my $obj = KeyVal_C_API::new_KeyVal_ptr_ptr();
-  my $errcode = KeyVal_C_API::KeyVal_new($obj);
+  my $ptr = KeyVal_C_API::new_KeyVal_ptr_ptr();
+  my $errcode = KeyVal_C_API::KeyVal_new($ptr);
   if ($errcode != 0) { croak "[ERROR] KeyVal::new"; }
-  $self->{kv} = KeyVal_C_API::KeyVal_ptr_ptr_value($obj);
+  $self->{kv} = KeyVal_C_API::KeyVal_ptr_ptr_value($ptr);
+  KeyVal_C_API::delete_KeyVal_ptr_ptr($ptr);
   return(bless($self, $class));
 }
 

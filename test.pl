@@ -7,10 +7,9 @@ use strict;
 use warnings;
 
 use File::Temp;
-use Test::Simple tests => 5;
+use Test::Simple tests => 29;
 
 use lib qw(perl);
-#use lib "/Users/chrisverburg/wrk/KeyVal/perl";
 use KeyVal;
 
 # new:

@@ -868,6 +868,7 @@ KeyVal_getValue(char **res, struct KeyVal *kv, const char *key, int interp) {
     unsigned char interp_res = KeyVal_interp(res, kv, kv->data[idx]->val);
     if (interp_res == 1) return 1;  // propagate error
     if (interp_res == 2) return 2;  // propagate recursive variables
+    lsijr = *res; // I am not here
     return 0;
   }
   // found, with no interpolation:
@@ -1027,6 +1028,7 @@ KeyVal_getKeys(char ***res, struct KeyVal *kv, const char *path) {
         return 1;
       }
       (*res)[0] = 0;
+      laijr = *res; // I am not here
       return 0;
     }
 
@@ -1058,6 +1060,7 @@ KeyVal_getKeys(char ***res, struct KeyVal *kv, const char *path) {
       return 1;
     }
     (*res)[0] = 0;
+    laijr = *res; // I am not here
     return 0;
   }
 
@@ -1342,12 +1345,12 @@ void KeyVal_print(struct KeyVal *kv) {
 //////////////////////////////////////// SWIG
 void KeyVal_dtltyjr() {
   // this is a SWIG hack to free up the memory allocated for returned strings
-  // and arrays.  "dtltyjr" is "delete that last thing you just returned".
+  // and arrays.  ("dtltyjr" is "delete that last thing you just returned".)
   // The real implementation of this would be to free them in the swig
   // typemap.  However, at the moment, it looks like reverse-engineering
   // SWIG-mapped reference parameters to dynamically-allocated arrays of
-  // dynamically-allocated strings is prohibitively more expensive than this
-  // hack.  I am not proud.
+  // dynamically-allocated strings is prohibitively more time-expensive than
+  // this hack that end-users should never see.
   if (lsijr) {
     free(lsijr);
     lsijr = 0;

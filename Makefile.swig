@@ -5,7 +5,7 @@ SWIG := /usr/local/bin/swig
 CC := /usr/bin/clang
 
 
-FLAGS := -O0 -g
+FLAGS := -O0 -g -fPIC
 WARNS := -Wshadow
 
 
@@ -63,8 +63,9 @@ KeyVal_python_wrap.so: KeyVal_python_wrap.o KeyVal.so
 
 #clang $^ /System/Library/Perl/5.12/darwin-thread-multi-2level/CORE/libperl.dylib -shared -o $@
 #perl/KeyVal.bundle: KeyVal.so KeyVal_perl_wrap.o
+#	$(CC) -shared $(PERL_LINK_FLAGS) $^ $(PERL_ARCHLIB)/CORE/libperl.dylib -o $@
 perl/$(PERL_VERSION)/$(PERL_ARCHNAME)/KeyVal_C_API.dylib: KeyVal.o KeyVal_load.o perl/$(PERL_VERSION)/$(PERL_ARCHNAME)/KeyVal_wrap.o 
-	$(CC) -shared $(PERL_LINK_FLAGS) $^ $(PERL_ARCHLIB)/CORE/libperl.dylib -o $@
+	$(CC) -shared $(PERL_LINK_FLAGS) $^ -o $@
 
 
 KeyVal_tcl_wrap.so: KeyVal_tcl_wrap.o KeyVal.so
@@ -72,5 +73,9 @@ KeyVal_tcl_wrap.so: KeyVal_tcl_wrap.o KeyVal.so
 
 
 clean:
-	rm KeyVal_*_wrap.*
-	rm perl/KeyVal.so
+	rm -f perl/KeyVal_wrap.c
+	rm -f perl/KeyVal_C_API.so
+	rm -f perl/KeyVal_C_API.pm
+	rm -f perl/$(PERL_VERSION)/$(PERL_ARCHNAME)/KeyVal_wrap.o
+	rm -f perl/$(PERL_VERSION)/$(PERL_ARCHNAME)/KeyVal_C_API.dylib
+
