@@ -107,7 +107,8 @@ unsigned char
   KeyVal_setValue(struct KeyVal *kv, const char *key, const char *val);
 
 
-// Returns the value for the given key.
+// Returns the value for the given key.  Ownership of the returned string
+// belongs with the caller, so you need to free it.
 // Parameters:
 //   <res>: pointer to where to put the string.  This must be the address of a
 //     valid pointer, though the pointer value is irrelevant.
@@ -123,6 +124,8 @@ unsigned char
 //   ..
 //   char *value;
 //   if (KeyVal_getValue(&value, kv, "some::random::path", 1)) abort();
+//   ..
+//   free(value);
 unsigned char
   KeyVal_getValue(char **res, struct KeyVal *kv, const char *key, int interp);
 
@@ -143,7 +146,9 @@ unsigned char
   KeyVal_remove(struct KeyVal *kv, const char *key);
 
 
-// Returns the list of all immediate sub-keys under a given key path.
+// Returns the list of all immediate sub-keys under a given key path.  Ownership
+// of both the array and the strings therein are given to the caller, so you
+// must free them.
 // Parameters:
 //   <res>: pointer to where to put the array.  This must be the address of a
 //     valid pointer, though the pointer value is irrelevant.
@@ -163,12 +168,16 @@ unsigned char
 //       key_array[idx] != 0;
 //       ++idx) {
 //     char *this_key = key_array[idx];
+//     ..
+//     free(this_key);
 //   }
+//   free(key_array);
 unsigned char
   KeyVal_getKeys(char ***res, struct KeyVal *kv, const char *path);
 
 
-// Returns a list of all the keys in the database.
+// Returns a list of all the keys in the database.  Ownership of both the array
+// and the strings therein are given to the caller, so you must free them.
 // Parameters:
 //   <res>: pointer to where to put the array.  This must be the address of a
 //     valid pointer, though the pointer value is irrelevant.
@@ -187,7 +196,10 @@ unsigned char
 //       key_array[idx] != 0;
 //       ++idx) {
 //     char *this_key = key_array[idx];
+//     ..
+//     free(this_key);
 //   }
+//   free(key_array);
 unsigned char
   KeyVal_getAllKeys(char ***res, struct KeyVal *kv);
 
