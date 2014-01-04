@@ -18,5 +18,8 @@ swigdir = .
 dist_perl_DATA = test.pl perl/KeyVal.pm perl/oom.pl
 perldir = perl
 
+dist_python_DATA = test.py python/KeyVal.py python/setup.py
+pythondir = python
+
 ACLOCAL_AMFLAGS = -I m4
 

@@ -84,17 +84,17 @@ sub getKeys {
   my $idx = 0;
   my $res_p_p = KeyVal_C_API::char_ptr_ptr_ptr_value($res_p);
   while (my $ptr = KeyVal_C_API::char_ptr_arr_getitem($res_p_p, $idx)) {
-    #my $str = KeyVal_C_API::char_ptr_ptr_value($ptr);
-    #last if (!defined $str);
     last if (!defined $ptr);  # null pointers are converted to undef
     my $str = $ptr;
     push @res, $str;
     ++$idx;
-    #BUG: memory leak here.  I don't know how to tell the C API to free $ptr,
+    # (bug) sort of a memory leak here.  I don't know how to tell the C API
+    # to free $ptr,
     # because SWIG automatically messes with char*'s so $ptr isn't really the
     # address.  I think the only way to fix this is to redefine the SWIG
     # typemap for char** and char***, and my SWIG-fu is not strong enough
-    # for that..
+    # for that.  In the meantime, the call to KeyVal_dtltyjr will free all
+    # these up and avoid the memory leak.
   }
 
   # free up our local pointer:
