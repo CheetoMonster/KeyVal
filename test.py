@@ -81,14 +81,12 @@ ok(keys[0] == 'foo::bar' and keys[1] == 'key', "KeyVal::getAllKeys returns the c
 # save:
 os.unlink(temp_file_obj.name)
 o.save(temp_file_obj.name)
-if not os.path.exists(temp_file_obj.name):
-  ok(False, "KeyVal::save did not write output to "+temp_file_obj.name)
-else:
+if ok(os.path.exists(temp_file_obj.name), "KeyVal::save writes output to "+temp_file_obj.name):
   fh = open(temp_file_obj.name)
   contents = fh.read()
   fh.close()
   expected = "`foo::bar` = `bas`\n`key` = `val`\n"
-  if not ok(contents == expected, "KeyVal::save"):
+  if not ok(contents == expected, "KeyVal::save writes correct content"):
     print("-> contents were actually '"+contents+"'")
     print("   instead of '"+expected+"'")
 

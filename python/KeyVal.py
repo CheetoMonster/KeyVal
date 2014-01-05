@@ -60,13 +60,11 @@ class KeyVal:
     res = []
     idx = 0
     res_p_p = KeyVal_C_API.char_ptr_ptr_ptr_value(res_p)
-    ptr = KeyVal_C_API.char_ptr_arr_getitem(res_p_p, idx)
-    while ptr:
-      if not ptr: break  # null pointers are converted to undef
-      str = ptr
+    str = KeyVal_C_API.char_ptr_arr_getitem(res_p_p, idx)
+    while str:
       res.append(str)
       idx += 1
-      ptr = KeyVal_C_API.char_ptr_arr_getitem(res_p_p, idx)
+      str = KeyVal_C_API.char_ptr_arr_getitem(res_p_p, idx)
 
     # free up our local pointer:
     KeyVal_C_API.delete_char_ptr_ptr_ptr(res_p)
@@ -83,13 +81,11 @@ class KeyVal:
     res = []
     idx = 0
     res_p_p = KeyVal_C_API.char_ptr_ptr_ptr_value(res_p)
-    ptr = KeyVal_C_API.char_ptr_arr_getitem(res_p_p, idx)
-    while ptr:
-      if not ptr: break  # null pointers are converted to undef
-      str = ptr
+    str = KeyVal_C_API.char_ptr_arr_getitem(res_p_p, idx)
+    while str:
       res.append(str)
       idx += 1
-      ptr = KeyVal_C_API.char_ptr_arr_getitem(res_p_p, idx)
+      str = KeyVal_C_API.char_ptr_arr_getitem(res_p_p, idx)
 
     # free up local pointer memory:
     KeyVal_C_API.delete_char_ptr_ptr_ptr(res_p)

@@ -7,7 +7,7 @@ use strict;
 use warnings;
 
 use File::Temp;
-use Test::Simple tests => 29;
+use Test::Simple tests => 30;
 
 use lib qw(perl);
 use KeyVal;
@@ -68,12 +68,10 @@ ok($keys[0] eq 'foo::bar' && $keys[1] eq 'key', "KeyVal::getAllKeys returns the 
 my ($fh2, $path2) = File::Temp::tempfile();
 close($fh2);
 $o->save($path2);
-if (!-e $path2) {
-  ok(0, "KeyVal::save did not write output to $path2");
-} else {
+if (ok(-e $path2, "KeyVal::save writes output to $path2")) {
   my $contents = qx{cat $path2};
   my $expected = "`foo::bar` = `bas`\n`key` = `val`\n";
-  if (!ok($contents eq $expected, "KeyVal::save")) {
+  if (!ok($contents eq $expected, "KeyVal::save writes correct content")) {
     print "-> contents were actually '$contents'\n";
     print "   instead of '$expected'\n";
   }
