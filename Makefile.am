@@ -21,5 +21,8 @@ perldir = perl
 dist_python_DATA = test.py python/KeyVal.py python/setup.py
 pythondir = python
 
+dist_tcl_DATA = test.tcl tcl/KeyVal.tcl tcl/pkgIndex.tcl
+tcldir = tcl
+
 ACLOCAL_AMFLAGS = -I m4
 

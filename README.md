@@ -77,6 +77,35 @@ In both cases, remember you need to install several files:
 TODO: I would love it if someone who knows python packaging would figure out how
 to package this up so that the install can be done like PYPY installs should be.
 
+tcl
+---
+
+You can build the tcl frontend with the following steps:
+- edit the TCL, SWIG, and CC variables in the header of Makefile.swig to
+point to your desired versions of each of those tools.
+- run "make -f Makefile.swig tcl"
+
+Now that it's built, you can test that it works by running ./test.tcl.  If
+everything's ok, now you need to install it.  I don't know what the usual
+process is for installing tcl extensions, but I imagine it's similar to
+perl or python, so you could either:
+- put it in a site-tcl directory of your tcl installation (the $::auto_path
+variable tells you where tcl will look for it)
+- or put it wherever you want and add the path to $::auto_path.
+
+In both cases, you need to install the following files:
+- tcl/KeyVal.tcl
+- tcl/KeyVal_C_API.?? (so or dylib or dll or something)
+- tcl/pkgIndex.tcl
+
+Also, you will need to actually edit the KeyVal.tcl file and change the "load"
+command to reflect wherever the files are actually installed.  Yes, this is
+horrible manual intervention, sorry.
+
+TODO: I would love it if someone who knows tcl packaging would figure out
+how we can not have to manually twiddle KeyVal.tcl.  Also, how we can 
+automate the install.
+
 
 Documentation
 ===
